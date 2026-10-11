@@ -318,3 +318,117 @@ def test_deleting_several_todos_forwards_each_etag() -> None:
 
     assert refusal.value.key == "etag_conflict"
     wanted.delete.assert_not_called()
+
+
+NAMED = "https://dav.test/cal/evt-1.ics"
+
+
+@pytest.mark.parametrize("todo", [False, True])
+def test_a_refused_uid_search_reads_the_resource_named_after_the_uid(todo) -> None:
+    import caldav
+    from caldav.elements import dav
+
+    calendar = _calendar(ReportError("412"))
+    calendar.client.stored[NAMED] = (VTODO if todo else VEVENT, '"e1"')
+
+    found = object_by_uid(calendar, "evt-1", todo=todo)
+
+    assert isinstance(found, caldav.Todo if todo else caldav.Event)
+    assert str(found.url) == NAMED
+    assert found.props[dav.GetEtag.tag] == '"e1"'
+    calendar.search.assert_not_called()
+
+
+def test_a_uid_of_any_kind_is_found_by_name_as_the_kind_it_is() -> None:
+    import caldav
+
+    calendar = _calendar(ReportError("412"))
+    calendar.client.stored[NAMED] = (VTODO, '"e1"')
+
+    assert isinstance(object_by_uid(calendar, "evt-1", todo=None), caldav.Todo)
+    calendar.search.assert_not_called()
+
+
+def test_a_resource_named_after_the_uid_but_holding_another_is_left_to_the_scan() -> (
+    None
+):
+    wanted = _resource("evt-1")
+    calendar = _calendar(ReportError("412"), [wanted])
+    calendar.client.stored[NAMED] = (VEVENT.replace("UID:evt-1", "UID:other"), '"e1"')
+
+    assert object_by_uid(calendar, "evt-1") is wanted
+
+
+def test_a_todo_named_after_the_uid_is_not_returned_as_an_event() -> None:
+    calendar = _calendar(ReportError("412"))
+    calendar.client.stored[NAMED] = (VTODO, '"e1"')
+
+    with pytest.raises(NotFoundError):
+        object_by_uid(calendar, "evt-1")
+
+
+def test_what_is_no_calendar_object_under_the_name_is_left_to_the_scan() -> None:
+    wanted = _resource("evt-1")
+    calendar = _calendar(ReportError("412"), [wanted])
+    calendar.client.stored[NAMED] = ("<html>Not here</html>", '"e1"')
+
+    assert object_by_uid(calendar, "evt-1") is wanted
+
+
+def test_a_server_that_forbids_the_name_is_scanned() -> None:
+    from caldav.lib.error import AuthorizationError
+
+    wanted = _resource("evt-1")
+    calendar = _calendar(ReportError("412"), [wanted])
+    calendar.client.request = Mock(side_effect=AuthorizationError(reason="Forbidden"))
+
+    assert object_by_uid(calendar, "evt-1") is wanted
+
+
+def test_a_read_by_name_that_gets_no_answer_is_not_followed_by_a_scan() -> None:
+    from caldav.davclient import requests
+
+    calendar = _calendar(ReportError("412"), [_resource("evt-1")])
+    calendar.client.request = Mock(side_effect=requests.ConnectionError())
+
+    with pytest.raises(requests.ConnectionError):
+        object_by_uid(calendar, "evt-1")
+
+    calendar.search.assert_not_called()
+
+
+def test_a_working_server_is_not_asked_for_the_resource_by_name() -> None:
+    calendar = _calendar(None)
+    calendar.client.request = Mock()
+
+    object_by_uid(calendar, "evt-1")
+
+    calendar.client.request.assert_not_called()
+
+
+def test_event_delete_matches_the_etag_the_read_by_name_came_with() -> None:
+    calendar = _calendar(ReportError("412"))
+    calendar.client.stored[NAMED] = (VEVENT, '"e1"')
+    calendar.client.request = Mock(wraps=calendar.client.request)
+
+    delete_event(calendar, "evt-1")
+
+    assert [call.args[1:2] for call in calendar.client.request.call_args_list] == [
+        (),
+        ("DELETE",),
+    ]
+    assert calendar.client.request.call_args.args[3] == {"If-Match": '"e1"'}
+    assert NAMED not in calendar.client.stored
+    calendar.search.assert_not_called()
+
+
+def test_event_update_writes_back_to_the_resource_read_by_name() -> None:
+    calendar = _calendar(ReportError("412"))
+    calendar.client.stored[NAMED] = (VEVENT, '"e1"')
+
+    update_event(calendar, "evt-1", {"summary": "moved"})
+
+    assert calendar.client.puts[-1][0] == NAMED
+    assert "SUMMARY:moved" in calendar.client.bodies[-1]
+    assert calendar.client.put_headers[-1]["If-Match"] == '"e1"'
+    calendar.search.assert_not_called()

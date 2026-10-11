@@ -78,13 +78,16 @@ def object_by_uid(
     """Return the calendar object carrying this uid.
 
     iCloud rejects the UID filter outright, so a refused lookup falls back to
-    a scan. A todo of None asks for the uid whatever kind it is stored as.
+    the resource named after the uid, then to a scan. A todo of None asks for
+    the uid whatever kind it is stored as.
     """
     try:
         return _filtered(calendar, uid, todo)
     except Exception as err:
         if not _uid_search_refused(err):
             raise
+    if (named := _named(calendar, uid, todo)) is not None:
+        return named
     for item, found in _scan(calendar, todo):
         if found == uid:
             return item
@@ -116,6 +119,37 @@ def _filtered(calendar: caldav.Calendar, uid: str, todo: bool | None) -> Any:
         except NotFoundError:
             continue
     return calendar.journal_by_uid(uid)
+
+
+_KINDS = {"VEVENT": caldav.Event, "VTODO": caldav.Todo, "VJOURNAL": caldav.Journal}
+
+
+def _named(calendar: caldav.Calendar, uid: str, todo: bool | None) -> Any:
+    """Return the resource named as caldav names the one of this uid, if it holds it."""
+    url = calendar.url.join(_resource_name(uid))
+    try:
+        response = calendar.client.request(str(url))
+    except Exception as err:
+        if not _uid_search_refused(err):
+            raise
+        return None
+    if response.status != 200:
+        return None
+    kinds = tuple(_KINDS) if todo is None else ("VTODO",) if todo else ("VEVENT",)
+    try:
+        held = ICalCalendar.from_ical(response.raw).subcomponents
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.debug("Leaving an unparsable object to the scan: %s", err)
+        return None
+    for part in held:
+        if part.name in kinds and str(_first(part.get("UID", ""))) == uid:
+            named = _KINDS[part.name](
+                calendar.client, url=url, data=response.raw, parent=calendar
+            )
+            if (tag := response.headers.get("Etag")) is not None:
+                named.props[dav.GetEtag.tag] = tag
+            return named
+    return None
 
 
 def _scan(calendar: caldav.Calendar, todo: bool | None) -> Iterator[tuple[Any, str]]:

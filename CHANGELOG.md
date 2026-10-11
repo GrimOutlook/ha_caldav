@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file, in the format o
 ### Fixed
 
 - Listing invitations on Radicale gave nothing instead of a clear message.
+- Changing or deleting an event took minutes on a large iCloud calendar (#31).
 
 ### Dependencies
 

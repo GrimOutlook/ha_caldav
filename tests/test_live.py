@@ -926,6 +926,51 @@ def test_an_unfiltered_search_returns_both_kinds(calendar) -> None:
     assert {"Live both event", "Live both todo"} <= summaries
 
 
+def _refuse_uid_searches(monkeypatch) -> None:
+    from caldav.lib.error import ReportError
+
+    from custom_components.ha_caldav import api
+
+    def refuse(*_args):
+        raise ReportError("412 Precondition Failed")
+
+    monkeypatch.setattr(api, "_filtered", refuse)
+    monkeypatch.setattr(api, "_scan", lambda *_: pytest.fail("read the collection"))
+
+
+def test_an_event_is_changed_and_deleted_by_its_name_when_the_uid_search_is_refused(
+    calendar, monkeypatch
+) -> None:
+    create_event(
+        calendar,
+        {
+            "summary": "Meeting",
+            "dtstart": datetime(2026, 7, 6, 9, 0, tzinfo=UTC),
+            "dtend": datetime(2026, 7, 6, 10, 0, tzinfo=UTC),
+        },
+    )
+    uid = uid_of(calendar)
+    _refuse_uid_searches(monkeypatch)
+
+    update_event(calendar, uid, {"summary": "Moved"})
+    assert list(summaries(calendar).values()) == ["Moved"]
+
+    delete_event(calendar, uid)
+    assert summaries(calendar) == {}
+
+
+def test_a_todo_is_renamed_by_its_name_when_the_uid_search_is_refused(
+    calendar, monkeypatch
+) -> None:
+    create_todo(calendar, {"summary": "Buy milk"})
+    uid = todos(calendar)["Buy milk"].uid
+    _refuse_uid_searches(monkeypatch)
+
+    update_todo(calendar, uid, {"summary": "Buy bread"})
+
+    assert list(todos(calendar)) == ["Buy bread"]
+
+
 def test_moving_one_item_leaves_the_others_untouched(calendar) -> None:
     from custom_components.ha_caldav.api import reorder_todos
 
