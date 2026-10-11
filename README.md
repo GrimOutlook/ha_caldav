@@ -43,7 +43,7 @@ Or open **Settings → Devices & services → Add integration** and search for *
 
 ## Configuration
 
-Setup asks for the server URL, username and password. A host name is usually enough, and under **Certificates** a CA bundle and a client certificate and key can be set.
+Setup asks for the server URL, username and password. An account with two-factor authentication needs an app password. A host name is usually enough, and under **Certificates** a CA bundle and a client certificate and key can be set.
 
 | Option | Default | Description |
 |---|---|---|
