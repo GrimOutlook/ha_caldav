@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file, in the format o
 
 ## [Unreleased]
 
+### Fixed
+
+- A password or user name with umlauts or other non-English characters was rejected
+
 ### Dependencies
 
 - pytest-homeassistant-custom-component 0.13.370 -> 0.13.371

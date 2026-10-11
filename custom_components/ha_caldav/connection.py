@@ -200,6 +200,8 @@ class HostLockedSession(requests.Session):
         PUT, PROPFIND or MKCALENDAR on without its body. caldav tells a bad
         password from a refusal by the reason phrase, which HTTP/2 leaves out.
         A proxy that compresses a GET gives its etag a suffix (RFC 9110 8.8.3.3).
+        caldav hands requests a Basic login as str, which goes out as latin-1
+        where servers read UTF-8 (RFC 7617 2.1).
         """
         if self.https_only and urlparse(str(url)).scheme.lower() != "https":
             _LOGGER.warning(
@@ -207,6 +209,12 @@ class HostLockedSession(requests.Session):
                 without_userinfo(str(url)),
             )
             raise requests.exceptions.InvalidURL("refusing to leave https")
+        auth = kwargs.get("auth")
+        if isinstance(auth, requests.auth.HTTPBasicAuth):
+            if isinstance(auth.username, str):
+                auth.username = auth.username.encode()
+            if isinstance(auth.password, str):
+                auth.password = auth.password.encode()
         if method.upper() in ("GET", "HEAD"):
             kwargs["headers"] = {
                 **(kwargs.get("headers") or {}),

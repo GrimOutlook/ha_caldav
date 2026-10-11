@@ -1,6 +1,8 @@
+from base64 import b64encode
 from unittest.mock import Mock, patch
 
 from caldav.davclient import requests
+from caldav.lib.error import AuthorizationError
 from homeassistant.const import CONF_URL, CONF_VERIFY_SSL
 import pytest
 
@@ -514,3 +516,27 @@ def test_a_refusal_carries_its_standard_phrase(status: int, phrase: str) -> None
         response = HostLockedSession().request("PROPFIND", "https://x/", data="<x/>")
 
     assert response.reason == phrase
+
+
+@pytest.mark.parametrize(
+    "password", ["pässwört", "€uro"], ids=["in_latin_1", "outside_latin_1"]
+)
+def test_a_basic_login_goes_out_as_utf_8(password: str) -> None:
+    client = build_client("https://cloud.example.com/dav/", "jürgen", password, {})
+    challenge = requests.Response()
+    challenge.status_code = 401
+    challenge.headers["WWW-Authenticate"] = 'Basic realm="x", charset="UTF-8"'
+    challenge._content = b""
+
+    with (
+        patch.object(requests.Session, "request", return_value=challenge) as sent,
+        pytest.raises(AuthorizationError),
+    ):
+        client.principal()
+
+    expected = "Basic " + b64encode(f"jürgen:{password}".encode()).decode()
+    logins = [auth for call in sent.call_args_list if (auth := call.kwargs["auth"])]
+    assert logins
+    for auth in logins:
+        prepared = requests.Request("GET", "https://x/", auth=auth).prepare()
+        assert prepared.headers["Authorization"] == expected
