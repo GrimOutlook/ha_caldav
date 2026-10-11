@@ -4,6 +4,8 @@ All notable changes to this project are documented in this file, in the format o
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-11
+
 ### Fixed
 
 - Listing invitations on Radicale gave nothing instead of a clear message.
@@ -11,8 +13,8 @@ All notable changes to this project are documented in this file, in the format o
 
 ### Dependencies
 
-- hypothesis 6.168.4 -> 6.168.5
-- pytest-homeassistant-custom-component 0.13.368 -> 0.13.370
+- hypothesis 6.168.4 -> 6.168.5 (#28)
+- pytest-homeassistant-custom-component 0.13.368 -> 0.13.370 (#29, #30)
 
 ## [1.5.0] - 2026-10-08
 
@@ -295,7 +297,8 @@ All notable changes to this project are documented in this file, in the format o
 - Options for calendar selection, poll interval, days ahead, all-day events and read-only.
 - English and German translations.
 
-[Unreleased]: https://github.com/ivenos/ha_caldav/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/ivenos/ha_caldav/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/ivenos/ha_caldav/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/ivenos/ha_caldav/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/ivenos/ha_caldav/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/ivenos/ha_caldav/compare/v1.4.0...v1.4.1
