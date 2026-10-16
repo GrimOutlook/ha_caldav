@@ -4,8 +4,13 @@ All notable changes to this project are documented in this file, in the format o
 
 ## [Unreleased]
 
+### Breaking changes
+
+- Cross-host CalDAV moves require the final server URL in setup, except for iCloud shards (#4).
+
 ### Fixed
 
+- CalDAV credentials and client certificates stay within trusted server origins (#4).
 - Failed multi-step writes no longer roll back over another client's edits (#3).
 - Splitting a recurring event refuses to overwrite an existing destination (#2).
 - Expensive calendar recurrence calculations are isolated and resource-limited (#1).

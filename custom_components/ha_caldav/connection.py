@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping
 from http import HTTPStatus
 import logging
+import re
 from typing import Any
 from urllib.parse import unquote, urljoin, urlparse, urlunparse
 
@@ -47,6 +48,22 @@ def origin(url: str) -> tuple[str, str, int | None] | None:
         )
     except ValueError:
         return None
+
+
+_ICLOUD_CALDAV = re.compile(r"(?:p[0-9]+-)?caldav\.icloud\.com")
+
+
+def trusted_origin(source: str, target: str) -> bool:
+    """Allow the configured origin and Apple's HTTPS CalDAV shard endpoints."""
+    entered, destination = origin(source), origin(target)
+    if entered is None or destination is None:
+        return False
+    if entered == destination:
+        return True
+    return all(
+        scheme == "https" and port == 443 and _ICLOUD_CALDAV.fullmatch(host)
+        for scheme, host, port in (entered, destination)
+    )
 
 
 def account_key(url: str, username: str) -> str:
@@ -159,30 +176,41 @@ def _resolve_bootstrap(probe: str, kwargs: Mapping[str, Any]) -> str | None:
     whoever replied, and that answer cracks offline.
     """
     try:
-        response = requests.request(
-            "GET",
-            probe,
-            allow_redirects=True,
-            verify=kwargs.get("ssl_verify_cert", True),
-            cert=kwargs.get("ssl_cert"),
-            timeout=kwargs.get("timeout", DEFAULT_TIMEOUT),
-        )
+        target = probe
+        for _ in range(30):
+            response = requests.request(
+                "GET",
+                target,
+                allow_redirects=False,
+                verify=kwargs.get("ssl_verify_cert", True),
+                cert=kwargs.get("ssl_cert"),
+                timeout=kwargs.get("timeout", DEFAULT_TIMEOUT),
+            )
+            if response.status_code not in (301, 302, 303, 307, 308):
+                break
+            location = response.headers.get("Location")
+            if not location:
+                break
+            target = without_userinfo(urljoin(target, location))
+            if not trusted_origin(probe, target):
+                return None
+        else:
+            return None
     except Exception:  # noqa: BLE001
         _LOGGER.debug("Could not reach %s", WELL_KNOWN)
         return None
-    if urlparse(probe).scheme == "https" and any(
-        urlparse(str(hop.url)).scheme != "https"
-        for hop in (*response.history, response)
+    if any(
+        not trusted_origin(probe, str(hop.url)) for hop in (*response.history, response)
     ):
         # A proxy terminating TLS without X-Forwarded-Proto redirects to http.
-        _LOGGER.debug("Ignoring a bootstrap that steps out of https")
+        _LOGGER.debug("Ignoring a bootstrap outside the trusted origins")
         return None
     # caldav prefers userinfo in the url over the account handed to it.
     return without_userinfo(str(response.url))
 
 
 class HostLockedSession(requests.Session):
-    """A session that carries no credentials across a change of host or out of https.
+    """A session that sends credentials only to explicitly trusted origins.
 
     requests drops the Authorization header itself, but the digest response
     hook outlives the redirect and re-signs for the new host. caldav follows a
@@ -192,6 +220,13 @@ class HostLockedSession(requests.Session):
     # Where the first request that was moved for good ended up.
     moved_to: str | None = None
     https_only = False
+    trusted_url: str | None = None
+
+    def _check_origin(self, url: Any) -> None:
+        if self.trusted_url is not None and not trusted_origin(
+            self.trusted_url, str(url)
+        ):
+            raise requests.exceptions.InvalidURL("refusing an untrusted CalDAV origin")
 
     def request(self, method: str, url: Any, *args: Any, **kwargs: Any) -> Any:
         """Send a request, following a redirect on the same host with its method.
@@ -203,6 +238,7 @@ class HostLockedSession(requests.Session):
         caldav hands requests a Basic login as str, which goes out as latin-1
         where servers read UTF-8 (RFC 7617 2.1).
         """
+        self._check_origin(url)
         if self.https_only and urlparse(str(url)).scheme.lower() != "https":
             _LOGGER.warning(
                 "Not sending the account to %s: the server moved it off https",
@@ -235,6 +271,7 @@ class HostLockedSession(requests.Session):
             if response.status_code not in (301, 302, 307, 308) or not location:
                 break
             target = urljoin(url, location)
+            self._check_origin(target)
             if self.should_strip_auth(url, target):
                 break
             if response.status_code in (301, 308):
@@ -245,6 +282,8 @@ class HostLockedSession(requests.Session):
 
     def rebuild_auth(self, prepared_request: Any, response: Any) -> None:
         """Strip what authenticates a request that has changed host."""
+        # Runs before requests sends a redirect, including its client certificate.
+        self._check_origin(prepared_request.url)
         super().rebuild_auth(prepared_request, response)
         if self.should_strip_auth(response.request.url, prepared_request.url):
             prepared_request.hooks["response"] = []
@@ -262,6 +301,7 @@ def build_client(
     except TypeError:
         session = HostLockedSession()
     session.https_only = urlparse(url).scheme.lower() == "https"
+    session.trusted_url = url
     client.session = session
     return client
 

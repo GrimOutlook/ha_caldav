@@ -210,11 +210,9 @@ def test_the_entered_url_is_yielded_without_asking_the_server() -> None:
         assert not request.called
 
 
-def test_the_bootstrap_is_followed_to_where_it_lands() -> None:
-    # RFC 6764 lets the host you type differ from the one holding the account.
+def test_a_bootstrap_cannot_authorize_an_arbitrary_new_origin() -> None:
     assert _candidates("https://example.com", "https://dav.example.net/dav/") == [
-        "https://example.com",
-        "https://dav.example.net/dav/",
+        "https://example.com"
     ]
 
 

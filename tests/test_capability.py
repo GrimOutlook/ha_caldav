@@ -665,7 +665,7 @@ def test_a_delegated_account_that_cannot_be_read_leaves_the_others() -> None:
     assert calendars == [own]
 
 
-SHARD = "https://p42-caldav.icloud.test:443"
+SHARD = "https://p42-caldav.icloud.com:443"
 SHARED = (
     "<d:resourcetype><d:collection/><c:calendar/></d:resourcetype>"
     '<c:supported-calendar-component-set><c:comp name="VEVENT"/>'
@@ -741,7 +741,7 @@ def _events(calendar: caldav.Calendar) -> list[str]:
 
 def test_events_are_read_when_the_calendar_home_is_on_another_host() -> None:
     with _sharded():
-        client = build_client("https://caldav.icloud.test/", "jane", "secret", {})
+        client = build_client("https://caldav.icloud.com/", "jane", "secret", {})
         [calendar], _ = account_calendars(client)
         fetch_capabilities(client)
 
@@ -749,8 +749,8 @@ def test_events_are_read_when_the_calendar_home_is_on_another_host() -> None:
 
 
 def test_a_delegated_account_on_another_host_does_not_take_the_client_along() -> None:
-    with _sharded(delegator_home="https://p57-caldav.icloud.test:443/2/calendars/"):
-        client = build_client("https://caldav.icloud.test/", "jane", "secret", {})
+    with _sharded(delegator_home="https://p57-caldav.icloud.com:443/2/calendars/"):
+        client = build_client("https://caldav.icloud.com/", "jane", "secret", {})
         [calendar], delegations = account_calendars(client)
 
         assert delegations == []
