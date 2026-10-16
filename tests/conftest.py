@@ -37,7 +37,7 @@ class RecordingClient:
         ):
             return _answer(412, "Precondition Failed")
         self.stored[url] = (body, f'"{len(self.puts)}"')
-        return _answer(204 if held else 201)
+        return _answer(204 if held else 201, headers={"Etag": self.stored[url][1]})
 
     def request(self, url, method="GET", body="", headers=None):
         url, headers = str(url), dict(headers or {})

@@ -653,6 +653,12 @@ def put_resource(resource: Any, tag: str | None = None, new: str | None = None) 
         raise Refused("etag_conflict")
     if response.status not in (200, 201, 204):
         raise PutError(errmsg(response))
+    # A cleanup must use the version this PUT created, never a later GET.
+    resource.props.pop(dav.GetEtag.tag, None)
+    headers = getattr(response, "headers", {}) or {}
+    tag = headers.get("ETag") or headers.get("Etag")
+    if isinstance(tag, str):
+        resource.props[dav.GetEtag.tag] = tag
 
 
 def delete_resource(resource: Any, tag: str | None = None) -> None:
@@ -736,9 +742,17 @@ def _still_there(calendar: caldav.Calendar, uid: str, todo: bool = False) -> boo
 def _undo(resource: Any) -> None:
     """Remove a resource this call wrote before failing further on."""
     try:
-        delete_resource(resource)
+        rollback_resource(resource)
     except Exception as err:  # noqa: BLE001
         _LOGGER.warning("Could not undo a half-finished write: %s", err)
+
+
+def rollback_resource(resource: Any) -> None:
+    """Delete only the version created by our PUT, preserving intervening edits."""
+    tag = resource.props.get(dav.GetEtag.tag)
+    if not isinstance(tag, str) or not tag.strip() or tag.strip().startswith("W/"):
+        raise Refused("etag_conflict")
+    delete_resource(resource, tag.strip())
 
 
 def save_document(

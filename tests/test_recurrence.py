@@ -408,7 +408,7 @@ class FakeCalendar:
         created.url = str(url)
         created._delete_error = self._created_delete_error
         self.created.append(created)
-        return SimpleNamespace(status=201)
+        return SimpleNamespace(status=201, headers={"Etag": '"created"'})
 
     def _request(self, url, method="GET", body="", headers=None):
         for created in self.created:
