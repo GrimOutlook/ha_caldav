@@ -147,13 +147,12 @@ def update_event(
         )
         occurrence = following
 
-    # RFC 4791 allows one UID per object; a derived UID lets a retry overwrite
-    # the tail instead of duplicating it.
+    # A derived UID avoids duplicate tails. A collision must fail closed: it
+    # could be a tail another client edited after a partly completed split.
     tail = save_document(
         calendar,
         _tail_document(ical, master, data, occurrence, own_address),
         as_todo=False,
-        overwrite=True,
     )
     try:
         _cap_series(master, occurrence)
@@ -970,11 +969,7 @@ def _detach_dates(
                 if delta and key in vevent:
                     moved = shifted(vevent[key].dt, delta, _zone(master))
                     replace(vevent, key.lower(), moved)
-        written.append(
-            save_document(
-                calendar, zoned_document(document), as_todo=False, overwrite=True
-            )
-        )
+        written.append(save_document(calendar, zoned_document(document), as_todo=False))
     _filter_dates(master, "RDATE", lambda value: not leaving(value))
     for override in _overrides(ical):
         if override is not master and leaving(override["RECURRENCE-ID"].dt):

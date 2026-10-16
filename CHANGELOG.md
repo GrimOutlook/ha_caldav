@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file, in the format o
 
 ### Fixed
 
+- Splitting a recurring event refuses to overwrite an existing destination (#2).
 - Expensive calendar recurrence calculations are isolated and resource-limited (#1).
 - A password or user name with umlauts or other non-English characters was rejected
 
