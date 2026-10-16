@@ -33,10 +33,10 @@ from icalendar import (
 from .api import (
     collapse_repeated,
     delete_components,
-    delete_resource,
     held_etag,
     object_by_uid,
     put_resource,
+    rollback_resource,
     save_document,
     stamp,
     zoned_document,
@@ -1112,11 +1112,11 @@ def _head_uncapped(
 
 def _discard(tail: Any) -> None:
     try:
-        delete_resource(tail)
-    except NETWORK_ERRORS as err:
+        rollback_resource(tail)
+    except WRITE_ERRORS as err:
         _LOGGER.warning(
             "The split-off series could not be removed after a failed update"
-            " and may show duplicate events until the update is retried: %s",
+            " and may need manual reconciliation: %s",
             err,
         )
 
