@@ -745,12 +745,11 @@ def save_document(
     calendar: caldav.Calendar,
     document: ICalCalendar,
     as_todo: bool,
-    overwrite: bool = False,
 ) -> Any:
     """Write a whole document to a collection as a resource named after its uid.
 
-    As a new one unless told to overwrite. The document, not its text, which
-    caldav would put through vcal.fix.
+    Always as a new resource. The document, not its text, which caldav would
+    put through vcal.fix. Replacing an existing version requires its own etag.
     """
     head = next(item for item in document.subcomponents if item.name != "VTIMEZONE")
     if not (uid := str(_first(head.get("UID", "")))):
@@ -762,7 +761,7 @@ def save_document(
         data=document,
         parent=calendar,
     )
-    put_resource(stored, new=None if overwrite else uid)
+    put_resource(stored, new=uid)
     return stored
 
 
