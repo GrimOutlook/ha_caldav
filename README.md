@@ -56,6 +56,15 @@ Setup asks for the server URL, username and password. An account with two-factor
 
 The last three options can also be set per calendar.
 
+### Credential origins
+
+Passwords and client certificates are restricted to the configured URL's origin
+(scheme, host and port). Discovery and redirects cannot authorize an arbitrary
+new origin. Apple's HTTPS `caldav.icloud.com` and `p<number>-caldav.icloud.com`
+endpoints are trusted together for iCloud discovery. For other providers moving
+to a different host or port, enter the final URL through the integration's
+**Reconfigure** flow. HTTPS connections never downgrade to HTTP.
+
 ## Actions
 
 Called as `ha_caldav.<action>` on a calendar or to-do list, `create_calendar` and `delete_calendar` on the account.
