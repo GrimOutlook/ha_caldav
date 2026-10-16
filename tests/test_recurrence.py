@@ -3707,7 +3707,7 @@ def test_a_split_that_cannot_take_its_tail_back_still_reports_the_real_failure(
             this_and_future=True,
         )
 
-    assert "duplicate events" in caplog.text
+    assert "manual reconciliation" in caplog.text
 
 
 def test_a_series_moved_with_its_rule_respelled_keeps_its_exceptions() -> None:
