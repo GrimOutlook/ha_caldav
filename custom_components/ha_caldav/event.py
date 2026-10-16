@@ -32,6 +32,7 @@ from .const import (
     ATTR_URL,
 )
 from .errors import Refused
+from .recurrence_budget import validate
 
 _MAILTO = "mailto:"
 
@@ -47,6 +48,7 @@ def rule_from(recur: Any, dtstart: datetime | date) -> Any:
     if (interval := recur.get("INTERVAL")) and int(interval[0]) < 1:
         raise Refused("invalid_rrule", reason=f"INTERVAL={interval[0]}")
     _check_ranges(recur)
+    validate(_aligned(recur, dtstart), as_datetime(dtstart).isoformat())
     # The value as stored: converted first, a DATE start reads as floating.
     return rrulestr(_aligned(recur, dtstart), dtstart=as_datetime(dtstart))
 
@@ -84,8 +86,6 @@ def check_rule(recur: Any, dtstart: datetime | date) -> None:
     poll, and an object stored with one cannot be deleted from here.
     """
     check_expandable(recur, dtstart)
-    if next(iter(rule_from(recur, dtstart)), None) is None:
-        raise Refused("invalid_rrule", reason=recur.to_ical().decode("utf-8"))
 
 
 def _check_ranges(recur: Any) -> None:

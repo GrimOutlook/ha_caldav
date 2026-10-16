@@ -26,6 +26,7 @@ from .color import Collection, fetch_collections
 from .connection import calendar_key, display_name
 from .errors import rejected
 from .event import alarm_moments, check_expandable, read_extras, to_utc
+from .recurrence_budget import compute
 
 try:
     from homeassistant.components.calendar import CalendarEventStatus
@@ -891,7 +892,14 @@ def occurrences(item: Any, start: datetime, end: datetime) -> list[Any]:
                 for part in item.icalendar_instance.subcomponents
                 if part.name == "VTIMEZONE"
             ]
-            item.expand_rrule(start, end)
+            item.data = compute(
+                {
+                    "operation": "expand",
+                    "ics": str(item.data),
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                }
+            )
             item.icalendar_instance.subcomponents[:0] = zones
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Skipping a series that cannot be expanded: %s", err)

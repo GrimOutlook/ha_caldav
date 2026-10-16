@@ -78,6 +78,15 @@ Called as `ha_caldav.<action>` on a calendar or to-do list, `create_calendar` an
 
 An alarm of an event within the days ahead or of an open to-do fires the event `ha_caldav_reminder` with `entity_id`, `uid`, `recurrence_id`, `summary`, `description`, `location`, `start`, `end` or `due`, and the `alarm`. Completing, canceling or deleting a to-do does the same to its subtasks, and reopening one reopens the to-dos above it.
 
+## Recurrence resource limits
+
+Recurrence validation and calendar expansion run in isolated workers, with at most
+two workers at once. Each has a three-second CPU budget, an eight-second wall-clock
+deadline and a 512 MiB address-space limit. A recurring document may be at most
+4 MiB before expansion, 16 MiB after expansion and contain at most 10,000 expanded
+events per requested window. A series exceeding a limit is skipped when reading;
+a write requiring that computation is refused. Other series remain available.
+
 ## Compatibility
 
 | | Nextcloud | Baikal | Radicale | Xandikos | SOGo |
