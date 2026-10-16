@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file, in the format o
 
 ### Fixed
 
+- Expensive calendar recurrence calculations are isolated and resource-limited (#1).
 - A password or user name with umlauts or other non-English characters was rejected
 
 ### Dependencies
